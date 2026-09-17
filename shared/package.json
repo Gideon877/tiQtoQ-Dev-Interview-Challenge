@@ -1,5 +1,10 @@
 {
   "name": "@dev-interview-challenge/shared",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "main": "./types.ts",
+  "exports": {
+    ".": "./types.ts"
+  }
 }
