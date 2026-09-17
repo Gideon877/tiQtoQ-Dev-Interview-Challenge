@@ -1,18 +1,18 @@
 {
-  "name": "dev-interview-challenge",
-  "version": "1.0.0",
-  "private": true,
-  "packageManager": "pnpm@11.18.0",
-  "engines": {
-    "node": ">=22.0.0"
-  },
-  "scripts": {
-    "dev": "pnpm --filter @dev-interview-challenge/ui dev",
-    "build": "pnpm --filter @dev-interview-challenge/ui build",
-    "lint": "pnpm --filter @dev-interview-challenge/ui lint",
-    "typecheck": "pnpm --filter @dev-interview-challenge/ui typecheck"
-  },
-  "devDependencies": {
-    "typescript": "5.9.2"
-  }
+    "name": "dev-interview-challenge",
+    "version": "1.0.0",
+    "private": true,
+    "packageManager": "pnpm@12.4.2+sha512.08adc6613180275c7c9edada39dcf08c9c61ad4e7eaf330a4f3461f102b0f907423454d117f98e72d47fef0616070644d7bffc973a6a57f5090a6d7c368b07c9",
+    "engines": {
+        "node": ">=22.0.0"
+    },
+    "scripts": {
+        "dev": "pnpm --parallel --filter \"@dev-interview-challenge/*\" dev",
+        "build": "pnpm --filter \"@dev-interview-challenge/*\" build",
+        "lint": "pnpm --recursive run lint",
+        "typecheck": "pnpm --recursive run typecheck"
+    },
+    "devDependencies": {
+        "typescript": "5.9.2"
+    }
 }
