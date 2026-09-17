@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Enable CORS so the Next.js UI (http://localhost:3000) can communicate with the API
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({ origin: '*'  }));
 app.use(express.json());
 
 // Healthcheck Endpoint
