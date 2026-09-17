@@ -1,4 +1,4 @@
-# tiQtoQ Software Developer Interview Challenge
+# tiQtoQ Software Developer Interview Challenge [![CI](https://github.com/Gideon877/tiQtoQ-Dev-Interview-Challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/Gideon877/tiQtoQ-Dev-Interview-Challenge/actions/workflows/ci.yml)
 
 Build a **Change Risk Analyser**: a small application that helps a development team understand the testing risk associated with a proposed software change.
 
