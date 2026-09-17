@@ -3,17 +3,20 @@ import { AnalyzeRiskRequest, AnalyzeRiskResponse, RiskLevel } from "@dev-intervi
 interface Rule {
     id: string;
     keywords: string[];
+    matchers: string[];
     riskLevel: RiskLevel;
     impactedArea: string;
     testingActivities: string[];
 }
 
-const RULES: Rule[] = [
+type RawRule = Omit<Rule, 'matchers'>;
+
+const RAW_RULES: RawRule[] = [
     {
         id: 'auth_security',
         keywords: [
-            'auth', 'authenticate', 'authentication', 'login', 'logout', 'mfa', '2fa', 
-            'password', 'token', 'jwt', 'session', 'role', 'permission', 'rbac', 'oauth', 
+            'auth', 'authenticate', 'authentication', 'login', 'logout', 'mfa', '2fa',
+            'password', 'token', 'jwt', 'session', 'role', 'permission', 'rbac', 'oauth',
             'saml', 'sso', 'admin', 'privilege', 'gdpr', 'pii', 'encrypt', 'encryption'
         ],
         riskLevel: 'High',
@@ -27,7 +30,7 @@ const RULES: Rule[] = [
     {
         id: 'payment_billing',
         keywords: [
-            'payment', 'stripe', 'billing', 'credit card', 'invoice', 'checkout', 
+            'payment', 'stripe', 'billing', 'credit card', 'invoice', 'checkout',
             'subscription', 'refund', 'charge', 'currency', 'tax', 'cart', 'transaction'
         ],
         riskLevel: 'High',
@@ -41,7 +44,7 @@ const RULES: Rule[] = [
     {
         id: 'database_persistence',
         keywords: [
-            'database', 'db', 'migration', 'schema', 'sql', 'query', 'postgres', 'mysql', 
+            'database', 'db', 'migration', 'schema', 'sql', 'query', 'postgres', 'mysql',
             'mongo', 'prisma', 'orm', 'index', 'table', 'column', 'redis', 'cache', 'entity'
         ],
         riskLevel: 'High',
@@ -55,7 +58,7 @@ const RULES: Rule[] = [
     {
         id: 'infrastructure_devops',
         keywords: [
-            'deploy', 'docker', 'kubernetes', 'k8s', 'terraform', 'aws', 'azure', 'gcp', 
+            'deploy', 'docker', 'kubernetes', 'k8s', 'terraform', 'aws', 'azure', 'gcp',
             'ci/cd', 'pipeline', 'env', 'config', 'environment variable', 'secrets', 'dns', 'nginx'
         ],
         riskLevel: 'High',
@@ -69,7 +72,7 @@ const RULES: Rule[] = [
     {
         id: 'background_async',
         keywords: [
-            'queue', 'job', 'worker', 'cron', 'task', 'kafka', 'rabbitmq', 'sqs', 
+            'queue', 'job', 'worker', 'cron', 'task', 'kafka', 'rabbitmq', 'sqs',
             'background', 'async', 'batch', 'schedule', 'event'
         ],
         riskLevel: 'Medium',
@@ -83,7 +86,7 @@ const RULES: Rule[] = [
     {
         id: 'api_integration',
         keywords: [
-            'api', 'endpoint', 'rest', 'graphql', 'webhook', 'payload', 'route', 
+            'api', 'endpoint', 'rest', 'graphql', 'webhook', 'payload', 'route',
             'contract', 'microservice', 'grpc', 'third-party', 'sdk'
         ],
         riskLevel: 'Medium',
@@ -122,7 +125,7 @@ const RULES: Rule[] = [
     {
         id: 'ui_frontend',
         keywords: [
-            'ui', 'css', 'style', 'layout', 'theme', 'color', 'button', 'component', 
+            'ui', 'css', 'style', 'layout', 'theme', 'color', 'button', 'component',
             'font', 'frontend', 'react', 'view', 'form', 'modal', 'page', 'design', 'responsive'
         ],
         riskLevel: 'Low',
@@ -135,15 +138,32 @@ const RULES: Rule[] = [
     }
 ];
 
+/**
+ * Normalize text for matching: lowercase, collapse any run of non-alphanumeric
+ * characters into a single space, and pad with surrounding spaces. Padding
+ * gives us reliable whole-token matching without relying on \b, which breaks
+ * around characters like `/` and `-` (e.g. "ci/cd", "third-party").
+ */
+const normalize = (value: string): string =>
+    ` ${value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+
+// Compile matchers once at module load rather than per request.
+const RULES: Rule[] = RAW_RULES.map((rule) => ({
+    ...rule,
+    matchers: rule.keywords.map(normalize),
+}));
+
 const DEFAULT_TESTING = [
     'Perform standard unit and integration tests for modified code paths.',
     'Conduct manual smoke tests in the staging environment.'
 ];
 
 export function analyzeChangeRisk(request: AnalyzeRiskRequest): AnalyzeRiskResponse {
-    const normalizedInput = request.description.toLowerCase().trim();
+    const description = typeof request?.description === 'string' ? request.description : '';
+    const haystack = normalize(description);
 
-    if (!normalizedInput) {
+    // A normalized empty string is just two spaces ("  ").
+    if (haystack.trim().length === 0) {
         return {
             riskLevel: 'Low',
             impactedAreas: ['Unspecified'],
@@ -151,21 +171,9 @@ export function analyzeChangeRisk(request: AnalyzeRiskRequest): AnalyzeRiskRespo
         };
     }
 
-    const triggeredRules: Rule[] = [];
-
-    // Evaluate rules using regex match to handle word boundaries cleanly
-    for (const rule of RULES) {
-        const matches = rule.keywords.some((kw) => {
-            // Escapes potential special regex chars in keywords
-            const escaped = kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-            const pattern = new RegExp(`\\b${escaped}\\b`, 'i');
-            return pattern.test(normalizedInput);
-        });
-
-        if (matches) {
-            triggeredRules.push(rule);
-        }
-    }
+    const triggeredRules = RULES.filter((rule) =>
+        rule.matchers.some((matcher) => haystack.includes(matcher))
+    );
 
     if (triggeredRules.length === 0) {
         return {
@@ -175,13 +183,12 @@ export function analyzeChangeRisk(request: AnalyzeRiskRequest): AnalyzeRiskRespo
         };
     }
 
-    // Determine highest risk level: High > Medium > Low
-    let overallRisk: RiskLevel = 'Low';
-    if (triggeredRules.some((r) => r.riskLevel === 'High')) {
-        overallRisk = 'High';
-    } else if (triggeredRules.some((r) => r.riskLevel === 'Medium')) {
-        overallRisk = 'Medium';
-    }
+    const RISK_ORDER: Record<RiskLevel, number> = { Low: 0, Medium: 1, High: 2 };
+
+    const overallRisk = triggeredRules.reduce<RiskLevel>(
+        (acc, rule) => (RISK_ORDER[rule.riskLevel] > RISK_ORDER[acc] ? rule.riskLevel : acc),
+        'Low'
+    );
 
     const impactedAreas = Array.from(new Set(triggeredRules.map((r) => r.impactedArea)));
     const recommendedTesting = Array.from(
